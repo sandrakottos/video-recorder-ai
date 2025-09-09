@@ -11,28 +11,37 @@
 </head>
 <body>
     <div class="container">
-        <h1 class="main-title">What's on your mind?</h1>
-        
-        <div class="video-container">
-            <video id="preview" autoplay muted></video>
-        </div>
-        
-        <div class="controls">
-            <button id="recordButton" class="dreamy-record-btn">
-                <div class="button-content">
-                    <div class="button-icon">
-                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-                            <circle cx="12" cy="12" r="3" fill="currentColor"/>
-                        </svg>
+        <header class="page-header">
+            <h1 class="main-title">What's on your mind?</h1>
+        </header>
+
+        <main class="recorder-content">
+            <section class="video-container">
+                <video id="preview" autoplay muted playsinline></video>
+            </section>
+            
+            <section class="controls">
+                <button id="recordButton" class="dreamy-record-btn">
+                    <div class="button-content">
+                        <div class="button-icon">
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                                <circle cx="12" cy="12" r="3" fill="currentColor"/>
+                            </svg>
+                        </div>
+                        <span class="button-text">Share Your Thoughts</span>
                     </div>
-                    <span class="button-text">Start Recording</span>
-                </div>
-            </button>
-        </div>
-        
-        <div id="status" class="status-text"></div>
-        <div id="recording-link" class="download-links"></div>
+                </button>
+            </section>
+        </main>
+
+        <footer class="page-footer">
+            <nav class="navigation-links">
+                <a href="/videos" class="nav-link">View Past Thoughts →</a>
+            </nav>
+            <div id="status" class="status-text"></div>
+            <div id="recording-link" class="download-links"></div>
+        </footer>
     </div>
     
     <script src="{{ url_for('static', filename='script.js') }}"></script>

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📹 Your Thoughts - Past Videos</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="page-header">
+            <h1 class="main-title">Your Thoughts</h1>
+            <p class="subtitle">A collection of your shared moments</p>
+            <a href="/" class="back-button">← Share New Thoughts</a>
+        </header>
+        
+        <main class="videos-content">
+            {% if videos %}
+            <div class="videos-grid">
+                {% for video in videos %}
+                <a href="/video/{{ video.base_name }}" class="video-card">
+                    <div class="video-thumbnail">
+                        <video preload="metadata" muted loop playsinline>
+                            <source src="{{ url_for('download_file', filename=video.filename) }}#t=0.1" type="video/webm">
+                        </video>
+                        <div class="play-overlay">
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M8 5v14l11-7z" fill="currentColor"/>
+                            </svg>
+                        </div>
+                    </div>
+                    
+                    <div class="video-info">
+                        <div class="video-date" data-timestamp="{{ video.creation_time }}">
+                            <!-- Date will be formatted by JS -->
+                        </div>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-icon">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" fill="currentColor"/>
+                        <circle cx="12" cy="12" r="4" fill="currentColor"/>
+                    </svg>
+                </div>
+                <h3>No thoughts shared yet</h3>
+                <p>Your recorded videos will appear here once you've shared them.</p>
+                <a href="/" class="start-sharing-btn">Share Your First Thought</a>
+            </div>
+            {% endif %}
+        </main>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Format all dates
+            document.querySelectorAll('.video-date').forEach(el => {
+                const timestamp = parseInt(el.dataset.timestamp, 10);
+                if (timestamp) {
+                    el.textContent = new Date(timestamp * 1000).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                    });
+                }
+            });
+
+            // Add hover effect to play video previews
+            document.querySelectorAll('.video-card').forEach(card => {
+                const video = card.querySelector('video');
+                if (video) {
+                    card.addEventListener('mouseenter', () => {
+                        video.play().catch(e => console.error("Video preview failed:", e));
+                    });
+                    card.addEventListener('mouseleave', () => {
+                        video.pause();
+                        video.currentTime = 0;
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>

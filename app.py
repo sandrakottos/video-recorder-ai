@@ -63,23 +63,59 @@ def generate_unique_filename(base_name: str = "journal") -> Dict[str, str]:
 
 
 def extract_audio_from_video(video_path: str, audio_path: str) -> bool:
-    """Extract audio from video file using ffmpeg."""
+    """Extract and preprocess audio from video file using ffmpeg with noise reduction and normalization."""
     try:
+        # First try with full processing including loudnorm
         (
             ffmpeg
             .input(video_path)
+            .filter('highpass', f=80)  # High-pass filter to remove low-frequency noise
+            .filter('loudnorm', I=-16, TP=-1.5, LRA=11, measured_I=-16, measured_TP=-1.5, measured_LRA=11)  # Audio normalization with measured values
             .output(
                 audio_path,
                 acodec='pcm_s16le',
                 ac=1,
-                ar='16000'
+                ar='44100'  # Higher quality sample rate
             )
             .run(overwrite_output=True, quiet=True)
         )
         return True
     except ffmpeg.Error as e:
-        logger.error(f"FFmpeg error during audio extraction: {e}")
-        return False
+        logger.warning(f"FFmpeg error with loudnorm, trying without normalization: {e}")
+        try:
+            # Fallback to extraction with highpass filter only
+            (
+                ffmpeg
+                .input(video_path)
+                .filter('highpass', f=80)  # High-pass filter to remove low-frequency noise
+                .output(
+                    audio_path,
+                    acodec='pcm_s16le',
+                    ac=1,
+                    ar='44100'
+                )
+                .run(overwrite_output=True, quiet=True)
+            )
+            return True
+        except ffmpeg.Error as e2:
+            logger.warning(f"FFmpeg error with highpass filter, trying basic extraction: {e2}")
+            try:
+                # Final fallback to basic audio extraction without any filters
+                (
+                    ffmpeg
+                    .input(video_path)
+                    .output(
+                        audio_path,
+                        acodec='pcm_s16le',
+                        ac=1,
+                        ar='44100'
+                    )
+                    .run(overwrite_output=True, quiet=True)
+                )
+                return True
+            except ffmpeg.Error as e3:
+                logger.error(f"FFmpeg error during basic audio extraction: {e3}")
+                return False
     except Exception as e:
         logger.error(f"Unexpected error during audio extraction: {e}")
         return False
@@ -136,6 +172,97 @@ def create_formatted_transcript(response: Any, transcript: str) -> str:
 def index():
     """Render the main application page."""
     return render_template('index.html')
+
+
+@app.route('/videos')
+def videos():
+    """Render the past videos page."""
+    try:
+        # Get all video files with corresponding transcript files
+        video_files = []
+        uploads_dir = app.config['UPLOAD_FOLDER']
+        
+        if os.path.exists(uploads_dir):
+            for filename in os.listdir(uploads_dir):
+                if filename.endswith('.webm'):
+                    # Check if corresponding transcript exists
+                    base_name = filename.rsplit('.', 1)[0]
+                    transcript_file = f"{base_name}.txt"
+                    transcript_path = os.path.join(uploads_dir, transcript_file)
+                    
+                    if os.path.exists(transcript_path):
+                        # Get file creation time
+                        file_path = os.path.join(uploads_dir, filename)
+                        creation_time = os.path.getctime(file_path)
+                        
+                        video_files.append({
+                            'filename': filename,
+                            'transcript_filename': transcript_file,
+                            'base_name': base_name,
+                            'creation_time': creation_time
+                        })
+        
+        # Sort by creation time (newest first)
+        video_files.sort(key=lambda x: x['creation_time'], reverse=True)
+        
+        return render_template('videos.html', videos=video_files)
+        
+    except Exception as e:
+        logger.error(f"Error loading videos page: {e}")
+        return render_template('videos.html', videos=[])
+
+
+@app.route('/video/<base_name>')
+def video_detail(base_name: str):
+    """Render the video detail page with player and transcript."""
+    try:
+        # Security: Prevent directory traversal
+        if '..' in base_name or '/' in base_name or '\\' in base_name:
+            logger.warning(f"Suspicious base_name requested: {base_name}")
+            return jsonify({'error': 'Invalid video name'}), 400
+        
+        uploads_dir = app.config['UPLOAD_FOLDER']
+        video_file = f"{base_name}.webm"
+        transcript_file = f"{base_name}.txt"
+        
+        video_path = os.path.join(uploads_dir, video_file)
+        transcript_path = os.path.join(uploads_dir, transcript_file)
+        
+        # Check if both files exist
+        if not os.path.exists(video_path) or not os.path.exists(transcript_path):
+            logger.warning(f"Video or transcript not found: {base_name}")
+            return jsonify({'error': 'Video not found'}), 404
+        
+        # Read transcript content
+        try:
+            with open(transcript_path, 'r', encoding='utf-8') as f:
+                transcript_content = f.read()
+            # Remove duplicated heading if present for display purposes
+            try:
+                lines = transcript_content.splitlines()
+                if lines and lines[0].strip().upper() == 'TRANSCRIPT:':
+                    lines = lines[1:]
+                    transcript_content = "\n".join(lines).lstrip()
+            except Exception:
+                # If anything goes wrong, fall back to original content
+                pass
+        except Exception as e:
+            logger.error(f"Error reading transcript: {e}")
+            transcript_content = "Transcript unavailable"
+        
+        # Get file creation time
+        creation_time = os.path.getctime(video_path)
+        
+        return render_template('video_detail.html', 
+                             base_name=base_name,
+                             video_file=video_file,
+                             transcript_file=transcript_file,
+                             transcript_content=transcript_content,
+                             creation_time=creation_time)
+        
+    except Exception as e:
+        logger.error(f"Error loading video detail: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/upload', methods=['POST'])
 def upload():
